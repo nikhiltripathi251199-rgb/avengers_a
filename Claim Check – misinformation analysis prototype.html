@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en" data-skin="hud">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Claim Check – misinformation analysis prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&family=Share+Tech+Mono&family=Orbitron:wght@500;700&family=Literata:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#14202b;--mute:#5b6b7a;--line:#d3dae1;--v:#1f7a6b;--p:#b7791f;--q:#b23a48;--u:#5b6b7a;--o:#7a6fa8;--accent:#14202b;--on-accent:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1720;--panel:#18222d;--ink:#e6ecf1;--mute:#93a3b3;--line:#2b3846;--v:#4cc3ae;--p:#e0a94a;--q:#ee7a88;--u:#93a3b3;--o:#a79bdc;--accent:#e6ecf1;--on-accent:#0f1720}}
+:root[data-theme="dark"]{--bg:#0f1720;--panel:#18222d;--ink:#e6ecf1;--mute:#93a3b3;--line:#2b3846;--v:#4cc3ae;--p:#e0a94a;--q:#ee7a88;--u:#93a3b3;--o:#a79bdc;--accent:#e6ecf1;--on-accent:#0f1720}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans",system-ui,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 48px}
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.15;margin:0}
+h1{font-size:clamp(28px,5vw,40px)}
+header p{color:var(--mute);max-width:62ch;margin:8px 0 0}
+nav{display:flex;gap:6px;margin:20px 0 16px;border-bottom:1px solid var(--line)}
+nav button{background:none;border:0;border-bottom:3px solid transparent;color:var(--mute);font:inherit;font-weight:500;padding:10px 14px;cursor:pointer}
+nav button[aria-selected="true"]{color:var(--ink);border-color:var(--ink)}
+button:focus-visible,textarea:focus-visible{outline:3px solid var(--p);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+textarea{width:100%;min-height:220px;resize:vertical;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:12px;font:inherit}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{background:var(--accent);color:var(--on-accent);border:0;border-radius:6px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer}
+.ghost{background:none;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer}
+.small{font-size:13px;color:var(--mute)}
+.summary{display:flex;gap:16px;align-items:center;margin-bottom:14px}
+.gauge{flex:none;width:88px;height:88px;border-radius:50%;display:grid;place-items:center;font:700 24px "Bricolage Grotesque";background:conic-gradient(var(--c) calc(var(--pct)*1%),var(--line) 0)}
+.gauge span{width:68px;height:68px;border-radius:50%;background:var(--panel);display:grid;place-items:center}
+.claim{border-left:6px solid var(--c);background:var(--panel);border-radius:6px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 14px;margin-bottom:12px}
+.claim q{display:block;quotes:none;font-weight:500;margin-bottom:8px}
+.tag{display:inline-block;font-weight:600;font-size:14px;color:var(--c)}
+.meter{height:6px;background:var(--line);border-radius:3px;margin:6px 0 8px;max-width:220px}
+.meter i{display:block;height:100%;border-radius:3px;background:var(--c)}
+.claim dl{margin:8px 0 0;font-size:14px}
+.claim dt{font-weight:600;margin-top:6px}
+.claim dd{margin:0;color:var(--mute)}
+.flags li{margin-bottom:6px}
+.empty{color:var(--mute);padding:24px 4px}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{counter-increment:s;padding:12px 0 12px 44px;border-bottom:1px solid var(--line);position:relative}
+.steps li::before{content:counter(s);position:absolute;left:0;top:12px;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:600;font-size:14px}
+.steps b{display:block}
+.stub{font-size:12px;font-weight:600;color:var(--p);margin-left:6px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.scroll{overflow-x:auto}
+.item{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;border-bottom:1px solid var(--line);padding:12px 0}
+.item:last-child{border:0}
+.badge{display:inline-block;font-weight:600;font-size:13px;color:var(--c);margin-right:8px}
+.dbstat{margin:0 0 12px}
+input,select{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:9px 10px;font:inherit}
+input:focus-visible,select:focus-visible{outline:3px solid var(--p);outline-offset:2px}
+.form{display:grid;gap:10px;margin-top:10px}
+.form label{font-size:13px;color:var(--mute);display:grid;gap:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ---- presentation layer ---- */
+:root{--bg:#e4e9e4;--panel:#fff;--ink:#0d1612;--mute:#3f4c45;--line:#aab5ad;--accent:#12213d;--on-accent:#fff;--v:#0f5c40;--p:#845000;--q:#a01f2d;--u:#4a5565;--o:#4f438c}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0f0d;--panel:#141b17;--ink:#f3f7f4;--mute:#b6c3bb;--line:#41504a;--accent:#cfdcf5;--on-accent:#0a0f0d;--v:#62e0b2;--p:#f5c05f;--q:#ff9ca5;--u:#b4bec9;--o:#c3baf8}}
+:root[data-theme="dark"]{--bg:#0a0f0d;--panel:#141b17;--ink:#f3f7f4;--mute:#b6c3bb;--line:#41504a;--accent:#cfdcf5;--on-accent:#0a0f0d;--v:#62e0b2;--p:#f5c05f;--q:#ff9ca5;--u:#b4bec9;--o:#c3baf8}
+[hidden]{display:none!important}
+body{font:15px/1.55 "Instrument Sans",system-ui,sans-serif}
+h1,h2,h3,.sumtitle,.wm{font-family:Literata,Georgia,serif;font-weight:600;letter-spacing:-.01em}
+.wrap{max-width:1120px;padding:0 20px 64px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 0 10px}
+.wm{font-size:24px}
+nav{margin:6px 0 24px;overflow-x:auto;gap:4px}
+nav button{padding:10px 16px;border-bottom-width:2px;margin-bottom:-1px;border-radius:0}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+@media(min-width:920px){.grid{grid-template-columns:400px minmax(0,1fr)}.grid>.panel:first-child{position:sticky;top:16px}}
+.grid>.panel:first-child{margin:0}
+.panel{border-radius:12px;padding:20px;box-shadow:none}
+textarea{min-height:240px;border-radius:8px;padding:14px;font:16px/1.6 Literata,Georgia,serif}
+.cnt{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mute);margin-top:6px}
+.btn{border-radius:8px;padding:11px 24px;font-size:15px}
+.btn:disabled{opacity:.55;cursor:progress}
+.ghost{border-radius:8px;padding:7px 12px;font-size:13px;border-color:var(--mute)}
+.ghost:hover{background:var(--bg)}
+.empty{border:1px dashed var(--line);border-radius:12px;text-align:center;padding:64px 20px;font-family:Literata,Georgia,serif;font-size:17px}
+.sum{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 16px;margin-bottom:16px}
+.sum>div:first-child{flex:1;min-width:200px}
+.sumtitle{font-size:26px;line-height:1.15;margin-bottom:4px}
+.spec{position:relative;flex:0 0 100%;height:10px;border-radius:5px;margin:20px 0 10px;background:linear-gradient(90deg,var(--v),var(--p) 50%,var(--q))}
+.spec i{position:absolute;top:-5px;width:4px;height:20px;border-radius:2px;background:var(--ink);transform:translateX(-50%);box-shadow:0 0 0 3px var(--panel)}
+.specl{flex:0 0 100%;display:flex;justify-content:space-between;font-size:12px;color:var(--mute)}
+.passage{margin-bottom:16px}
+.passage h3{font-size:16px;margin-bottom:10px}
+.passage p{margin:0;font:17px/2 Literata,Georgia,serif;max-width:68ch}
+.mk{color:inherit;text-decoration:none;padding:2px 0;border-bottom:2px solid var(--c);-webkit-box-decoration-break:clone;box-decoration-break:clone;background:linear-gradient(color-mix(in srgb,var(--c) 22%,transparent),color-mix(in srgb,var(--c) 22%,transparent)) 0 0/0 100% no-repeat;animation:pen .6s ease-out calc(var(--i,0)*140ms) forwards}
+@keyframes pen{to{background-size:100% 100%}}
+.mk.o{border-bottom:2px dashed var(--line);background:none;animation:none;color:var(--mute)}
+a.mk:hover,a.mk:focus-visible{outline:2px solid var(--c);outline-offset:1px;border-radius:2px}
+@media(prefers-reduced-motion:reduce){.mk{animation:none;background-size:100% 100%}}
+.claim{border:1px solid var(--line);border-left:6px solid var(--c);border-radius:10px;padding:16px 18px;margin-bottom:12px}
+.claim:target{outline:2px solid var(--c);outline-offset:3px}
+.chead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.dot{display:none}
+.vt{font-size:13px;padding:3px 10px;border-radius:99px;background:color-mix(in srgb,var(--c) 14%,var(--panel));border:1px solid var(--c)}
+.conf{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute)}
+.conf::before{content:none}
+.mt{width:48px;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.mt i{display:block;height:100%;background:var(--c)}
+.claim q{font:500 17px/1.5 Literata,Georgia,serif;margin-bottom:8px}
+.why{margin:0;font-size:14.5px;color:var(--mute);max-width:70ch}
+.claim summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:500}
+.other{margin-top:14px;font-size:14px;color:var(--mute)}
+.other summary{cursor:pointer}
+th{font-size:13px;color:var(--mute);font-weight:600}
+input,select{border-radius:8px}
+.steps li::before{border-radius:6px}
+.srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:16px}
+.src{display:block;border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:var(--ink);text-decoration:none;background:var(--panel)}
+.src b{display:block;font:600 16px Literata,Georgia,serif;margin-bottom:2px}
+.src span{font-size:13.5px;color:var(--mute)}
+.src:hover,.src:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+.msg{padding:10px 14px;border-radius:10px;margin:10px 0 0;max-width:72ch;white-space:pre-wrap;line-height:1.55}
+.msg.user{background:color-mix(in srgb,var(--accent) 12%,var(--panel));margin-left:auto;width:fit-content}
+.msg.assistant{border:1px solid var(--line)}
+#mic[aria-pressed="true"]{background:var(--q);color:var(--on-accent);border-color:var(--q)}
+#spk[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+@media(max-width:600px){.wrap{padding:0 14px 48px}.sumtitle{font-size:22px}}
+
+/* ---- cyberpunk theme ---- */
+html:root:root:root{--bg:#0a0612;--panel:#130b25;--ink:#f6efff;--mute:#bba9da;--line:#3d2a66;--accent:#ff2bd6;--cy:#00f0ff;--on-accent:#12000f;--v:#00ffa3;--p:#fcee0a;--q:#ff4d6d;--u:#a9b6d6;--o:#b9a0ff;--glow:rgba(255,43,214,.5);--disp:"Chakra Petch","Instrument Sans",system-ui,sans-serif;--mono:"Share Tech Mono",ui-monospace,monospace;--cut:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));color-scheme:dark}
+body{background:radial-gradient(760px 480px at 0% 0%,rgba(255,43,214,.18),transparent 70%),radial-gradient(760px 480px at 100% 4%,rgba(0,240,255,.14),transparent 70%),linear-gradient(180deg,transparent 55%,rgba(255,43,214,.09)),var(--bg);background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(0,240,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.07) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:linear-gradient(transparent 30%,#000);mask-image:linear-gradient(transparent 30%,#000)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:2;background:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
+.wrap{position:relative;z-index:1}
+::selection{background:var(--accent);color:var(--on-accent)}
+a{color:var(--cy)}
+h1,h2,h3,.sumtitle,.src b,.empty{font-family:var(--disp);letter-spacing:.01em}
+.wm{font:700 26px var(--disp);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:10px;animation:glitch .7s steps(2,end) 1}
+.wm::before{content:"//";color:var(--accent);text-shadow:0 0 12px var(--accent)}
+@keyframes glitch{0%{text-shadow:3px 0 var(--accent),-3px 0 var(--cy);transform:translateX(-2px)}25%{text-shadow:-3px 0 var(--accent),3px 0 var(--cy);transform:translateX(2px)}50%{text-shadow:2px 0 var(--accent),-2px 0 var(--cy);transform:none}100%{text-shadow:none;transform:none}}
+@media(prefers-reduced-motion:reduce){.wm{animation:none}}
+.bar .small,.cnt,#aistat,#vstat,#attn,.conf,.specl,.small.dbstat,th{font-family:var(--mono);font-size:12.5px;letter-spacing:.03em}
+nav{border-bottom-color:var(--line)}
+nav button{font:600 13px var(--disp);text-transform:uppercase;letter-spacing:.09em;color:var(--mute)}
+nav button:hover{color:var(--ink)}
+nav button[aria-selected="true"]{color:var(--cy);border-color:var(--accent);text-shadow:0 0 14px rgba(0,240,255,.6)}
+.panel{border-radius:0;border-color:var(--line);border-top:2px solid var(--cy);background:linear-gradient(180deg,rgba(0,240,255,.05),transparent 35%),var(--panel);clip-path:var(--cut)}
+textarea,input,select{border-radius:0;background:#0b0518;border-color:var(--line);color:var(--ink)}
+textarea{font-family:"Instrument Sans",system-ui,sans-serif;font-size:15.5px;line-height:1.6}
+textarea:focus-visible,input:focus-visible,select:focus-visible{outline:none;border-color:var(--cy);box-shadow:0 0 0 2px rgba(0,240,255,.35)}
+button:focus-visible,a:focus-visible{outline:3px solid var(--cy);outline-offset:2px}
+.btn{border-radius:0;background:var(--p);color:#0a0612;font:700 14px var(--disp);text-transform:uppercase;letter-spacing:.08em;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px))}
+.btn:hover:not(:disabled){background:var(--cy)}
+.ghost{border-radius:0;background:transparent;color:var(--cy);border-color:var(--cy);font-family:var(--disp);font-weight:600;letter-spacing:.03em}
+.ghost:hover{background:rgba(0,240,255,.14)}
+#mic[aria-pressed="true"]{background:var(--q);border-color:var(--q);color:var(--on-accent)}
+#spk[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.empty{border-radius:0;border:1px dashed rgba(255,43,214,.5);background:rgba(255,43,214,.05);color:var(--mute)}
+.sumtitle{font-size:28px;text-transform:uppercase;letter-spacing:.04em}
+.spec{border-radius:0;box-shadow:0 0 18px -2px var(--glow)}
+.spec i{border-radius:0;background:#fff;box-shadow:0 0 0 3px var(--panel),0 0 14px #fff}
+.passage h3{text-transform:uppercase;letter-spacing:.08em;color:var(--cy)}
+.passage p{font:16.5px/1.95 "Instrument Sans",system-ui,sans-serif}
+.mk{border-radius:0;background-image:linear-gradient(color-mix(in srgb,var(--c) 28%,transparent),color-mix(in srgb,var(--c) 28%,transparent))}
+.claim{border-radius:0;border-color:var(--line);border-left:6px solid var(--c);background:rgba(255,255,255,.03);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
+.claim:target{outline:none;box-shadow:inset 0 0 0 2px var(--c),inset 0 0 28px -6px var(--c)}
+.claim q{font:500 16.5px/1.5 "Instrument Sans",system-ui,sans-serif}
+.vt{border-radius:0;font:400 12.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;border-color:var(--c)}
+.claim summary,.other summary{color:var(--cy)}
+.mt{border-radius:0}.mt i{border-radius:0}
+.msg{border-radius:0}
+.msg.user{background:rgba(255,43,214,.14);border:1px solid rgba(255,43,214,.45)}
+.msg.assistant{background:rgba(0,240,255,.05);border:1px solid rgba(0,240,255,.3)}
+.src{border-radius:0;background:rgba(255,255,255,.03);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
+.src:hover,.src:focus-visible{outline:none;border-color:var(--cy);box-shadow:inset 0 0 0 1px var(--cy),inset 0 0 24px -10px var(--cy)}
+.steps li::before{border-radius:0;background:var(--accent);color:var(--on-accent)}
+th,td,.item{border-bottom-color:var(--line)}
+
+/* ---- layout polish ---- */
+#go{flex:1 1 auto}
+.drop{display:block;width:100%;margin-top:10px;padding:12px;border-style:dashed;text-align:center;font-size:13px}
+.cnt span:first-child{white-space:nowrap}
+.cnt span:last-child{text-align:right}
+[data-ex]{font-size:12.5px;padding:5px 9px}
+@media(min-width:920px){.grid{grid-template-columns:430px minmax(0,1fr)}}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--c);color:var(--ink);font:400 12.5px var(--mono);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.chip b{color:var(--c);font:700 15px var(--disp)}
+.warn{margin-top:8px;font:400 12.5px var(--mono);color:var(--p)}
+.claim details{margin-top:12px}
+#q{flex:1 0 100%!important}
+#ask{order:1}#mic{order:2}#spk{order:3}
+nav button{white-space:nowrap}
+@media(max-width:600px){.bar .small{display:none}nav button{padding:10px 12px}}
+
+/* ---- app-shell layout ---- */
+main{min-width:0}
+#analyze.grid{grid-template-columns:minmax(0,1fr)}
+#analyze.grid>.panel:first-child{position:static}
+.cmd{padding:16px 20px}
+.cmdgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:6px}
+@media(min-width:760px){.cmdgrid{grid-template-columns:minmax(0,1fr) 230px}}
+.cmd textarea{min-height:130px}
+.cmdact{display:flex;flex-direction:column;gap:10px}
+.cmdact .btn,.cmdact .ghost{width:100%}
+.cmdact .btn{padding:14px}
+.cmdact .drop{margin:0}
+.exrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.exrow .small{margin-right:4px}
+#out{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+.rside{display:grid;gap:16px}
+.rside>.panel{margin:0}
+.rmain{min-width:0}
+@media(min-width:1100px){#out:has(.rside){grid-template-columns:minmax(0,370px) minmax(0,1fr)}.rside{position:sticky;top:16px}}
+.rside #copyrep,.rside #dlrep{order:9;margin-top:8px}
+.links{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;font-size:13.5px}
+.links a{font-weight:500}
+.side-note{display:none}
+@media(min-width:1000px){
+.wrap{max-width:1360px;display:grid;grid-template-columns:210px minmax(0,1fr);gap:0 36px;align-items:start}
+.side{position:sticky;top:0;height:100vh;box-sizing:border-box;display:flex;flex-direction:column;gap:22px;padding:24px 22px 24px 0;border-right:1px solid var(--line)}
+.side .bar{flex-direction:column;align-items:flex-start;gap:6px;padding:0}
+.side nav{flex-direction:column;gap:2px;margin:0;border:0;overflow:visible}
+.side nav button{text-align:left;border:0;border-left:3px solid transparent;margin:0;padding:11px 14px}
+.side nav button[aria-selected="true"]{border-left-color:var(--accent);background:rgba(255,43,214,.1)}
+.side-note{display:block;margin-top:auto;line-height:1.5}
+main{padding-top:24px}
+}
+
+/* ---- themes ---- */
+.themes{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:18px}
+@media(min-width:1000px){.themes{margin-bottom:0}}
+.themes .small{width:100%}
+.themes .ghost{font-size:12px;padding:4px 9px}
+.themes .ghost[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+html:not([data-skin="cyber"]) .panel,html:not([data-skin="cyber"]) .claim,html:not([data-skin="cyber"]) .src,html:not([data-skin="cyber"]) .btn{clip-path:none}
+html:not([data-skin="cyber"]) .wm{animation:none}
+/* Holo HUD: cyan hologram with gold controls */
+html[data-skin="hud"]:root:root:root{--bg:#02070d;--panel:#06182a;--ink:#d9f6ff;--mute:#86b9cc;--line:#164e68;--accent:#ffb62e;--cy:#35e0ff;--on-accent:#1a1000;--v:#4dffc3;--p:#ffc247;--q:#ff5a4d;--u:#8fb3c2;--o:#a9bcff;--glow:rgba(53,224,255,.5);--disp:Orbitron,"Instrument Sans",system-ui,sans-serif;--mono:"Share Tech Mono",ui-monospace,monospace;--br:linear-gradient(#35e0ff,#35e0ff);color-scheme:dark}
+html[data-skin="hud"] body{background:radial-gradient(900px 620px at 78% 18%,rgba(53,224,255,.16),transparent 65%),radial-gradient(600px 400px at 6% 0%,rgba(255,182,46,.08),transparent 70%),var(--bg);background-attachment:fixed}
+html[data-skin="hud"] body::before{background-image:radial-gradient(rgba(53,224,255,.22) 1px,transparent 1.5px),repeating-radial-gradient(circle at 78% 18%,transparent 0 58px,rgba(53,224,255,.08) 58px 59px);background-size:28px 28px,auto;-webkit-mask-image:radial-gradient(circle at 78% 18%,#000,transparent 75%);mask-image:radial-gradient(circle at 78% 18%,#000,transparent 75%)}
+html[data-skin="hud"] body::after{display:none}
+html[data-skin="hud"] .wm{font-size:20px;letter-spacing:.14em}
+html[data-skin="hud"] .wm::before{content:"";width:20px;height:20px;border-radius:50%;border:2px solid var(--cy);background:radial-gradient(circle,#fff 0 2px,transparent 3px);box-shadow:0 0 14px var(--cy),inset 0 0 8px var(--cy)}
+html[data-skin="hud"] .panel{border:1px solid rgba(53,224,255,.24);border-radius:2px;backdrop-filter:blur(6px);background:var(--br) 0 0/16px 2px no-repeat,var(--br) 0 0/2px 16px no-repeat,var(--br) 100% 0/16px 2px no-repeat,var(--br) 100% 0/2px 16px no-repeat,var(--br) 0 100%/16px 2px no-repeat,var(--br) 0 100%/2px 16px no-repeat,var(--br) 100% 100%/16px 2px no-repeat,var(--br) 100% 100%/2px 16px no-repeat,linear-gradient(180deg,rgba(53,224,255,.07),transparent 45%),rgba(6,24,42,.78);box-shadow:0 0 32px -14px var(--glow)}
+html[data-skin="hud"] nav button{font-size:12px;letter-spacing:.12em}
+html[data-skin="hud"] .side nav button[aria-selected="true"]{color:var(--cy);background:rgba(53,224,255,.1);border-left-color:var(--accent)}
+html[data-skin="hud"] textarea,html[data-skin="hud"] input,html[data-skin="hud"] select{border-radius:2px;background:rgba(2,12,22,.75);border-color:rgba(53,224,255,.32)}
+html[data-skin="hud"] .btn{border-radius:2px;background:linear-gradient(180deg,#ffd36b,#ffb62e);color:#1a1000;font-size:12.5px;letter-spacing:.14em;box-shadow:0 0 22px -6px rgba(255,182,46,.8)}
+html[data-skin="hud"] .btn:hover:not(:disabled){background:linear-gradient(180deg,#ffe3a0,#ffc247)}
+html[data-skin="hud"] .ghost{border-radius:2px;border-color:rgba(53,224,255,.55);color:var(--cy)}
+html[data-skin="hud"] .ghost:hover{background:rgba(53,224,255,.13)}
+html[data-skin="hud"] .sumtitle{font-size:21px;letter-spacing:.06em}
+html[data-skin="hud"] .claim{border-radius:2px;background:rgba(10,38,58,.55)}
+html[data-skin="hud"] .claim:target{box-shadow:inset 0 0 0 1px var(--c),inset 0 0 28px -8px var(--c)}
+html[data-skin="hud"] .msg.user{background:rgba(255,182,46,.12);border-color:rgba(255,182,46,.5)}
+html[data-skin="hud"] .msg.assistant{background:rgba(53,224,255,.06);border-color:rgba(53,224,255,.35)}
+html[data-skin="hud"] .empty{border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.04)}
+html[data-skin="hud"] .src{border-radius:2px;background:rgba(10,38,58,.55)}
+/* Daylight: clean light reading theme */
+html[data-skin="day"]:root:root:root{--bg:#eef1f5;--panel:#fff;--ink:#121a24;--mute:#465567;--line:#c6d0dc;--accent:#1f4fd8;--cy:#1f4fd8;--on-accent:#fff;--v:#0d7650;--p:#855400;--q:#b0213a;--u:#515d6e;--o:#5a4aa8;--glow:rgba(31,79,216,.2);--disp:Literata,Georgia,serif;--mono:"Instrument Sans",system-ui,sans-serif;color-scheme:light}
+html[data-skin="day"] body{background:var(--bg)}
+html[data-skin="day"] body::before,html[data-skin="day"] body::after{display:none}
+html[data-skin="day"] ::selection{background:#cfdcff;color:#121a24}
+html[data-skin="day"] .wm{font-size:24px;text-transform:none;letter-spacing:-.01em}
+html[data-skin="day"] .wm::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent)}
+html[data-skin="day"] .bar .small,html[data-skin="day"] .cnt,html[data-skin="day"] #aistat,html[data-skin="day"] #vstat,html[data-skin="day"] #attn,html[data-skin="day"] .conf,html[data-skin="day"] .specl,html[data-skin="day"] .small.dbstat,html[data-skin="day"] th,html[data-skin="day"] .warn,html[data-skin="day"] .chip,html[data-skin="day"] .vt{letter-spacing:0;text-transform:none}
+html[data-skin="day"] nav button{font-family:"Instrument Sans",system-ui,sans-serif;text-transform:none;letter-spacing:0;font-size:14.5px;font-weight:500}
+html[data-skin="day"] nav button[aria-selected="true"]{color:var(--accent);text-shadow:none;border-color:var(--accent)}
+html[data-skin="day"] .side nav button[aria-selected="true"]{background:rgba(31,79,216,.08)}
+html[data-skin="day"] .panel{border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:0 1px 2px rgba(18,26,36,.06)}
+html[data-skin="day"] textarea,html[data-skin="day"] input,html[data-skin="day"] select{border-radius:8px;background:#f7f9fb}
+html[data-skin="day"] textarea:focus-visible,html[data-skin="day"] input:focus-visible,html[data-skin="day"] select:focus-visible{box-shadow:0 0 0 3px rgba(31,79,216,.25)}
+html[data-skin="day"] .btn{border-radius:8px;background:var(--accent);color:#fff;font-family:"Instrument Sans",system-ui,sans-serif;text-transform:none;letter-spacing:0;font-size:15px}
+html[data-skin="day"] .btn:hover:not(:disabled){background:#1740b0}
+html[data-skin="day"] .ghost{border-radius:8px;color:var(--ink);border-color:#9aa8ba;font-family:"Instrument Sans",system-ui,sans-serif}
+html[data-skin="day"] .ghost:hover{background:#e3e9f2}
+html[data-skin="day"] .themes .ghost[aria-pressed="true"]{color:#fff}
+html[data-skin="day"] .sumtitle,html[data-skin="day"] .passage h3{text-transform:none;letter-spacing:-.01em}
+html[data-skin="day"] .passage h3{color:var(--ink)}
+html[data-skin="day"] .spec,html[data-skin="day"] .spec i{box-shadow:none}
+html[data-skin="day"] .spec i{background:var(--ink);box-shadow:0 0 0 3px #fff}
+html[data-skin="day"] .claim{border-radius:10px;background:#fff}
+html[data-skin="day"] .claim:target{box-shadow:inset 0 0 0 2px var(--c)}
+html[data-skin="day"] .vt{border-radius:99px;background:color-mix(in srgb,var(--c) 10%,#fff)}
+html[data-skin="day"] .chip{background:color-mix(in srgb,var(--c) 10%,#fff);border-radius:99px}
+html[data-skin="day"] .chip b{font-family:"Instrument Sans",system-ui,sans-serif}
+html[data-skin="day"] .msg{border-radius:10px}
+html[data-skin="day"] .msg.user{background:rgba(31,79,216,.1);border-color:rgba(31,79,216,.35)}
+html[data-skin="day"] .msg.assistant{background:#f7f9fb;border-color:var(--line)}
+html[data-skin="day"] .empty{border-radius:12px;border-color:#9aa8ba;background:transparent}
+html[data-skin="day"] .src{border-radius:10px;background:#fff}
+html[data-skin="day"] .steps li::before{border-radius:6px}
+html[data-skin="day"] .mk{background-image:linear-gradient(color-mix(in srgb,var(--c) 20%,transparent),color-mix(in srgb,var(--c) 20%,transparent))}
+html[data-skin="day"] .exrow .small{color:var(--mute)}
+
+/* ---- wordmark glow ---- */
+.wm{--wg:var(--cy)}
+html[data-skin="cyber"] .wm{--wg:var(--accent);animation:glitch .7s steps(2,end) 1,pulse 3.6s ease-in-out .7s infinite}
+html:not([data-skin="cyber"]) .wm{animation:pulse 3.6s ease-in-out infinite}
+html[data-skin="day"] .wm{--wg:var(--accent)}
+html[data-skin="hud"] .wm::before,html[data-skin="day"] .wm::before{animation:pulseb 3.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.62;text-shadow:0 0 2px transparent}50%{opacity:1;text-shadow:0 0 8px var(--wg),0 0 22px var(--wg)}}
+@keyframes pulseb{0%,100%{box-shadow:0 0 3px var(--wg),inset 0 0 2px var(--wg)}50%{box-shadow:0 0 16px var(--wg),inset 0 0 9px var(--wg)}}
+@media(prefers-reduced-motion:reduce){html .wm,html .wm::before{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside class="side">
+<header class="bar"><div class="wm">Factline</div><span class="small">Paste a claim, see what holds up</span></header>
+<nav role="tablist">
+<button role="tab" id="t1" aria-selected="true" data-tab="analyze">Check</button>
+<button role="tab" id="t5" aria-selected="false" data-tab="news">Live sources</button>
+<button role="tab" id="t3" aria-selected="false" data-tab="history">History</button>
+<button role="tab" id="t4" aria-selected="false" data-tab="refs">Reference set</button>
+<button role="tab" id="t2" aria-selected="false" data-tab="design">About</button>
+</nav>
+<div class="themes" role="group" aria-label="Theme"><span class="small">Theme</span><button class="ghost" data-skin-btn="hud" aria-pressed="true">Holo HUD</button><button class="ghost" data-skin-btn="cyber" aria-pressed="false">Cyberpunk</button><button class="ghost" data-skin-btn="day" aria-pressed="false">Daylight</button></div>
+<p class="small side-note">A prototype. Results demonstrate the workflow and are not a substitute for fact-checking.</p>
+</aside>
+<main>
+
+<section id="analyze" class="grid">
+<div class="panel cmd">
+<label for="inp" class="small">Text to check</label>
+<div class="cmdgrid">
+<div>
+<textarea id="inp" maxlength="6000" placeholder="Paste a message, post or claim here, or drop in a screenshot or text file. Tip: Ctrl+Enter checks it."></textarea>
+<div class="cnt"><span id="cc">0 / 6000</span><span>Longer texts take a little more time</span></div>
+</div>
+<div class="cmdact">
+<button class="btn" id="go">Check claims</button>
+<button class="ghost" id="clr">Clear</button>
+<input type="file" id="fi" hidden accept=".txt,.md,.csv,.json,.html,image/*">
+<button class="ghost drop" id="up" type="button">Add an image or file</button>
+<p class="small" id="aistat" role="status" style="margin:0"></p>
+</div>
+</div>
+<div class="exrow"><span class="small">No text handy? Try an example</span>
+<button class="ghost" data-ex="0">Forwarded health alert</button>
+<button class="ghost" data-ex="1">Mixed-accuracy post</button>
+<button class="ghost" data-ex="2">Opinion and forecast</button>
+</div>
+</div>
+<div>
+<div id="out" aria-live="polite"><div class="empty">Results appear here. Paste text, or try an example.</div></div>
+</div>
+</section>
+
+<section id="design" hidden>
+<div class="panel" style="margin-bottom:16px">
+<h2 style="font-size:22px;margin-bottom:6px">Pipeline</h2>
+<p class="small" style="margin-top:0">What the prototype runs in your browser is marked <b>live</b>. What a production system would add is marked <span class="stub" style="margin:0">stubbed</span> here.</p>
+<ol class="steps">
+<li><b>Ingest</b>Accept pasted text, URLs, or screenshots. Live: pasted text, images (the text is read by AI) and plain-text files. <span class="stub">stubbed: URLs and PDFs</span></li>
+<li><b>Split into claims</b>Sentence segmentation, then classify each as checkable fact, opinion, or prediction. Opinions and forecasts are never given a true/false verdict. Live: rule-based. Production: an LLM claim extractor.</li>
+<li><b>Detect manipulation signals</b>Urgency, absolute language, unnamed authorities, miracle-cure framing, shouting, missing sources. Live.</li>
+<li><b>Retrieve evidence</b>Match each claim against reference material. Live: a built-in reference set of well-documented claims, plus an AI assessment from model knowledge for anything outside it. <span class="stub">stubbed: no web search</span> Production: search plus retrieval over fact-check databases, government data and journals, favoring primary sources.</li>
+<li><b>Reason and score</b>Combine evidence match and manipulation signals into a verdict and confidence. Confidence reflects evidence quality, not certainty. Live: transparent rules. Production: LLM judgment grounded in cited passages.</li>
+<li><b>Explain</b>Show the verdict, a confidence meter, the evidence in plain language, red flags, and what would change the assessment.</li>
+</ol>
+</div>
+<div class="panel">
+<h2 style="font-size:22px;margin-bottom:10px">Verdict rules</h2>
+<div class="scroll"><table>
+<tr><th>Verdict</th><th>When it applies</th><th>Confidence rises with</th></tr>
+<tr><td style="color:var(--v);font-weight:600">Verified</td><td>Reference evidence supports the claim</td><td>Number and independence of sources</td></tr>
+<tr><td style="color:var(--p);font-weight:600">Partly true</td><td>A real element, but exaggerated or missing context</td><td>Clear mapping to the true part</td></tr>
+<tr><td style="color:var(--q);font-weight:600">Questionable</td><td>Contradicted by evidence, or several manipulation signals with no support</td><td>Direct contradiction by strong sources</td></tr>
+<tr><td style="color:var(--u);font-weight:600">Unverifiable</td><td>No usable evidence either way</td><td>Stays low by design</td></tr>
+<tr><td style="color:var(--o);font-weight:600">Not a factual claim</td><td>Opinion or prediction</td><td>Not scored</td></tr>
+</table></div>
+<p class="small">How the risk score works: each factual claim scores 100 if questionable, 55 if partly true, 40 if unverifiable and 0 if verified. The score is the average, plus 3 points for each warning sign in the wording (maximum 15). Opinions and forecasts are not included. Known limits of this prototype: reference matching is keyword-based and can miss paraphrases, claims outside the reference set get an AI assessment from model knowledge only (capped at medium confidence), and nothing recent can be checked because there is no live search. Treat results as a demonstration of the workflow, not as fact-checking.</p>
+</div>
+</section>
+<section id="news" hidden>
+<div class="panel">
+<h2 style="font-size:22px;margin-bottom:4px">Live sources</h2>
+<p class="small" style="margin-top:0;max-width:62ch">These sites publish new fact-checks all day and open in a new tab. Copy a claim or a forwarded message from one, then paste it on the Check tab.</p>
+<div class="srcs"><a class="src" href="https://apnews.com/hub/ap-fact-check" target="_blank" rel="noopener noreferrer"><b>AP Fact Check</b><span>Viral claims and “not real news” roundups</span></a><a class="src" href="https://www.reuters.com/fact-check/" target="_blank" rel="noopener noreferrer"><b>Reuters Fact Check</b><span>Debunks of images, videos and quotes</span></a><a class="src" href="https://leadstories.com/" target="_blank" rel="noopener noreferrer"><b>Lead Stories</b><span>Fake videos, AI-generated clips, hoaxes</span></a><a class="src" href="https://www.factcheck.org/" target="_blank" rel="noopener noreferrer"><b>FactCheck.org</b><span>Politics, health and science claims</span></a><a class="src" href="https://www.politifact.com/" target="_blank" rel="noopener noreferrer"><b>PolitiFact</b><span>Rated claims from politicians and posts</span></a><a class="src" href="https://newschecker.in/" target="_blank" rel="noopener noreferrer"><b>Newschecker</b><span>Viral claims in India, in several languages</span></a><a class="src" href="https://www.altnews.in/" target="_blank" rel="noopener noreferrer"><b>Alt News</b><span>Misinformation and media analysis from India</span></a><a class="src" href="https://www.boomlive.in/" target="_blank" rel="noopener noreferrer"><b>BOOM</b><span>Fact checks and deepfake analysis</span></a></div>
+</div>
+</section>
+
+<section id="history" hidden>
+<div class="panel">
+<h2 style="font-size:22px;margin-bottom:4px">Your history</h2>
+<p class="small dbstat" id="dbstat">Connecting to storage...</p>
+<div id="hist"><div class="empty">Checks you run are saved here, privately to you.</div></div>
+</div>
+</section>
+
+<section id="refs" hidden>
+<div class="panel" style="margin-bottom:16px">
+<h2 style="font-size:22px;margin-bottom:4px">Add a reference entry</h2>
+<p class="small" style="margin-top:0">Entries are shared with everyone who can use this page and are checked before the built-in set. A claim matches when every keyword group appears in it.</p>
+<div class="form" id="kbform">
+<label>Keyword groups, separated by commas. Use / for alternatives inside a group.<input id="kk" placeholder="e.g. bleach/disinfectant, cure/cures, covid"></label>
+<div class="two">
+<label>Verdict<select id="kv"><option value="q">Questionable</option><option value="p">Partly true or misleading</option><option value="v">Verified</option></select></label>
+<label>Confidence (20-99)<input id="kc" type="number" min="20" max="99" value="80"></label>
+</div>
+<label>Evidence summary, in your own words<input id="ke" placeholder="What reliable sources say about this claim"></label>
+<label>Source name<input id="ks" placeholder="e.g. who.int"></label>
+<div class="row" style="margin-top:0"><button class="btn" id="kadd">Add entry</button><span class="small" id="kmsg" role="status"></span></div>
+</div>
+</div>
+<div class="panel">
+<h2 style="font-size:22px;margin-bottom:4px">Shared entries</h2>
+<div id="kblist"><div class="empty">No shared entries yet. The built-in entries are always active.</div></div>
+</div>
+</section>
+</main>
+</div>
+
+<script>
+const BUILTIN=[
+{k:[["vaccin"],["microchip","chip","tracking device"]],v:"q",c:95,ev:"No vaccine contains a microchip or tracking device. The ingredients of authorized vaccines are published by regulators.",src:"who.int, fda.gov"},
+{k:[["bleach","disinfectant"],["drink","drinking","inject","ingest","swallow"]],v:"q",c:98,ev:"Swallowing or injecting bleach or disinfectants is poisonous and can cause severe harm. They do not treat any infection inside the body.",src:"cdc.gov, fda.gov"},
+{k:[["antibiotic"],["cure","cures","kill","kills","treat","treats","work"],["virus","viral","flu","cold"]],v:"q",c:92,ev:"Antibiotics act on bacteria, not viruses. Using them for colds or flu does not help and fuels antibiotic resistance.",src:"who.int, cdc.gov"},
+{k:[["flu"],["shot","vaccine"],["give","gives","cause","causes","giving"]],v:"q",c:88,ev:"Flu shots cannot cause influenza because they contain inactivated virus or a single protein. Mild, short-lived side effects such as a sore arm are possible.",src:"cdc.gov"},
+{k:[["knuckle","knuckles","cracking"],["arthritis"]],v:"q",c:80,ev:"Studies comparing habitual knuckle crackers with non-crackers have found no increased rate of arthritis.",src:"nih.gov, health.harvard.edu"},
+{k:[["moon landing","moon landings","apollo"],["fake","faked","staged","studio"]],v:"q",c:97,ev:"The Apollo missions are supported by returned lunar samples, independent tracking by other countries, and reflectors left on the surface that are still used.",src:"nasa.gov"},
+{k:[["climate change","global warming"],["human","humans","fossil","greenhouse","man-made"],["cause","caused","causes","driven","driver","due to"]],v:"v",c:96,ev:"Scientific assessments conclude that human activities, mainly burning fossil fuels, are the main driver of warming since the mid-1900s.",src:"ipcc.ch, nasa.gov"},
+{k:[["handwashing","washing hands","wash your hands","hand washing"],["prevent","prevents","reduce","reduces","protect","stops"]],v:"v",c:94,ev:"Washing hands with soap reduces the spread of diarrheal and respiratory illnesses.",src:"cdc.gov, who.int"},
+{k:[["seat belt","seatbelt","seat belts"],["reduce","reduces","save","saves","cut"],["death","deaths","fatal","injur","lives"]],v:"v",c:96,ev:"Seat belts substantially reduce the risk of death and serious injury in crashes.",src:"nhtsa.gov, who.int"},
+{k:[["chemtrail","chemtrails"]],v:"q",c:90,ev:"Contrails are condensation trails from engines. A 2016 survey of atmospheric scientists found almost none had seen evidence of a secret spraying program.",src:"Environmental Research Letters (2016)"},
+{k:[["shark","sharks"],["cancer"],["never","don't","dont","immune","cannot","can't"]],v:"q",c:88,ev:"Sharks do develop cancers, and tumors have been documented in many species. Shark cartilage supplements have not been shown to treat cancer.",src:"smithsonianmag.com, cancer.gov"},
+{k:[["goldfish"],["memory","remember","forget"],["3 seconds","three seconds","seconds"]],v:"q",c:90,ev:"Experiments show goldfish can learn and remember things for weeks or months, such as feeding times and trained responses.",src:"Published animal-cognition studies"},
+{k:[["vitamin c"],["prevent","prevents","cure","cures"],["cold","colds"]],v:"p",c:75,ev:"Regular vitamin C does not reduce how often most people catch colds, though it may slightly shorten them. It is not a cure.",src:"cochrane.org"},
+{k:[["cell phone","cellphone","mobile phone","phones"],["cause","causes"],["cancer","tumor","tumour"]],v:"p",c:70,ev:"Large studies have not established that phone use causes cancer. The WHO's cancer agency classes radiofrequency fields as 'possibly carcinogenic' and research continues.",src:"cancer.gov, iarc.who.int"},
+
+{k:[["vaccin"],["autism"]],v:"q",c:95,ev:"Large studies covering millions of children have found no link between vaccines and autism. The original 1998 paper that suggested one was retracted.",src:"who.int, cdc.gov"},
+{k:[["5g"],["covid","coronavirus","virus"]],v:"q",c:95,ev:"Viruses cannot travel on radio waves, and COVID-19 spread in places with no 5G coverage.",src:"who.int"},
+{k:[["hot water","lemon water","garlic","turmeric","ginger"],["cure","cures","kill","kills","prevent","prevents"],["covid","coronavirus","cancer","virus"]],v:"q",c:85,ev:"No home remedy has been shown to cure or prevent these diseases. Some foods are healthy, but that is not the same as treatment.",src:"who.int"},
+{k:[["whatsapp"],["charge","charging","paid","pay","subscription"]],v:"q",c:85,ev:"This is a recurring chain hoax. WhatsApp has repeatedly stated the basic messaging service is free.",src:"whatsapp.com (official FAQ)"},
+{k:[["great wall"],["space","moon"]],v:"q",c:80,ev:"Astronauts report the wall is extremely hard to see with the naked eye from orbit, and it cannot be seen from the Moon.",src:"nasa.gov"},
+{k:[["10%","10 percent","ten percent"],["brain"]],v:"q",c:90,ev:"Brain imaging shows activity throughout the brain. The '10%' idea is a long-running myth.",src:"scientificamerican.com, nih.gov"},
+{k:[["lightning"],["never","not"],["twice"]],v:"q",c:85,ev:"Lightning often strikes the same place more than once; tall structures are hit many times a year.",src:"noaa.gov"},
+{k:[["earth"],["orbits","revolves","goes around"],["sun"]],v:"v",c:99,ev:"The Earth orbits the Sun once about every 365.25 days. This is basic, well-established astronomy.",src:"nasa.gov"},
+{k:[["smoking"],["cause","causes","linked"],["cancer"]],v:"v",c:98,ev:"Smoking is a leading cause of lung cancer and other cancers, supported by decades of research.",src:"who.int, cdc.gov"},
+{k:[["vaccin"],["measles"],["prevent","prevents","protect","protects","effective"]],v:"v",c:96,ev:"Two doses of the measles vaccine are about 97% effective at preventing measles.",src:"cdc.gov, who.int"},
+{k:[["sugar"],["hyperactiv"]],v:"p",c:70,ev:"Controlled trials have not found that sugar causes hyperactivity in children, though parents often perceive it does, partly through expectation and party settings.",src:"Cochrane / JAMA reviews"},
+{k:[["tap water","drinking water","water"],["8 glasses","eight glasses"]],v:"p",c:65,ev:"Hydration needs vary by person, climate and diet, and food and other drinks count. Eight glasses is a rough rule of thumb, not a requirement.",src:"nhs.uk, mayoclinic.org"}
+];
+const EX=[
+"URGENT!!! Doctors have confirmed that drinking hot water with lemon cures coronavirus 100% of the time. The government doesn't want you to know this. Forward to everyone you love before this gets deleted!!!",
+"Smoking causes cancer, says every doctor. Meanwhile, the Great Wall of China is visible from space with the naked eye. Sources say a new law will ban cash payments next month. Humans only use 10% of their brains.",
+"I think the new city bus plan is the worst idea ever. The city should cancel it immediately. Electric cars will replace all petrol cars by 2035, and it will be a disaster for jobs."
+];
+const FLAGS=[
+{re:/\b(urgent|breaking|act now|before (it|this) (gets )?(deleted|removed|banned))\b/i,t:"Manufactured urgency",d:"Urgent framing pushes readers to share before checking."},
+{re:/\b(forward|share)\b.{0,40}\b(everyone|all|friends|family|contacts|loved)/i,t:"Chain-message language",d:"Requests to forward widely are typical of hoaxes."},
+{re:/\b(100%|guaranteed|always|never|everyone|nobody|all doctors|every doctor|proven)\b/i,t:"Absolute wording",d:"Real evidence rarely supports claims with no exceptions."},
+{re:/\b(they|government|media|big pharma|doctors?)\b.{0,30}(don'?t want you|hiding|hide|cover(ing)? up|silenc)/i,t:"Hidden-truth framing",d:"Suggests a cover-up without offering evidence."},
+{re:/\b(sources say|people say|i heard|experts say|doctors (have )?(confirmed|say)|scientists say|studies show|it is said)\b/i,t:"Unnamed authority",d:"No specific person, study or document is cited, so it cannot be checked."},
+{re:/\b(miracle|secret (cure|trick)|cures?\b)/i,t:"Miracle-cure framing",d:"Health claims of cures need strong clinical evidence."},
+{re:/\b(bit\.ly|tinyurl|t\.co|goo\.gl|ow\.ly)\b/i,t:"Shortened link",d:"The real destination is hidden, so the source cannot be judged."},
+{re:/\d[\d.,]*\s?(%|percent|million|billion)/i,t:"Statistic without a source",d:"Figures are most reliable when the original report or dataset is named."}
+];
+const RECENT=/\b(breaking|today|tonight|yesterday|this (morning|week|month)|last (night|week)|just (now|in)|right now|latest|hours ago|(january|february|march|april|may|june|july|august|september|october|november|december) \d{1,2}|2026)\b/i;
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LBL={v:["Verified","--v"],p:["Partly true or misleading","--p"],q:["Questionable","--q"],u:["Unverifiable","--u"],o:["Not a factual claim","--o"]};
+function split(t){return t.replace(/\s+/g," ").match(/[^.!?]+[.!?]*(?=\s|$)/g)?.map(s=>s.trim()).filter(s=>s.length>8)||[]}
+function kind(s){
+ if(/\b(i think|i believe|i feel|worst|best|should|ought|terrible|beautiful|disgusting|love|hate)\b/i.test(s))return"opinion";
+ if(/\b(will|going to|by 20\d\d|next (month|year))\b/i.test(s)&&!/\b(law|ban)\b.*\b(next month)/i.test(s)&&!/sources? say/i.test(s))return"prediction";
+ return"fact";
+}
+function flagsFor(s){
+ const f=FLAGS.filter(x=>x.re.test(s));
+ const L=s.replace(/[^A-Za-z]/g,"");
+ if(L.length>12&&(s.replace(/[^A-Z]/g,"").length/L.length)>.6)f.push({t:"Shouting",d:"Mostly capital letters is a common attention tactic."});
+ if(/!{2,}/.test(s))f.push({t:"Excessive punctuation",d:"Repeated exclamation marks signal emotional pressure."});
+ return f;
+}
+const NEG=/\b(myth|false|untrue|debunk\w*)\b|\b(doesn'?t|don'?t|isn'?t|aren'?t|no) (cause|link|evidence|cure)|\bnot (cause|causes|linked|true|visible|cure)/i;
+function match(s){
+ const l=s.toLowerCase();
+ if(NEG.test(l))return null;
+ return [...EXTRA,...BUILTIN].find(e=>e.k.every(g=>g.some(w=>l.includes(w))));
+}
+function analyze(text){
+ return split(text).map(s=>{
+  const kd=kind(s),fl=flagsFor(s),m=kd==="fact"?match(s):null;
+  let v,c,ev,cx,rc;
+  if(kd!=="fact"){v="o";c=null;ev=kd==="opinion"?"This is a personal view, so it cannot be true or false. Check the facts it relies on instead.":"This is a forecast about the future. It can be assessed for plausibility against expert projections but not verified today.";cx="Look for the data or sources behind the forecast, and who made it."}
+  else if(m){v=m.v;c=Math.max(40,m.c-fl.length*2);ev=m.ev+" (Reference: "+m.src+")";cx=v==="v"?"New high-quality evidence contradicting the sources above.":"A primary source or new study supporting the claim as worded."}
+  else if(RECENT.test(s)){v="u";c=15;rc=true;ev="This reads like recent news. This tool has no live search, so it cannot confirm or rule it out.";cx="Reports from several independent outlets, or an official statement, published after the event."}
+  else if(fl.length>=2){v="q";c=35;ev="No reliable evidence was found in this prototype's reference set, and the wording shows several manipulation signals.";cx="A named primary source (official statement, study, or record) that confirms it."}
+  else{v="u";c=20;ev="This prototype has no reference evidence for or against this claim. That does not mean it is false.";cx="A primary source, or coverage from several independent reliable outlets."}
+  return{s,kd,v,c,ev,cx,fl,kb:!!m,recent:rc};
+ });
+}
+let LAST=[],MS=0;
+const RANK={q:0,p:1,u:2,v:3};
+function render(r){
+ LAST=r;r.forEach((x,i)=>x.i=i);
+ if(!r.length){$("out").innerHTML='<div class="empty">No checkable sentences found. Paste a longer passage.</div>';return}
+ const fact=r.filter(x=>x.kd==="fact"),other=r.filter(x=>x.kd!=="fact");
+ const sig=r.reduce((a,x)=>a+x.fl.length,0);
+ let risk=0;
+ fact.forEach(x=>risk+=x.v==="q"?100:x.v==="p"?55:x.v==="u"?40:0);
+ risk=fact.length?Math.round(risk/fact.length):0;
+ risk=Math.min(100,risk+Math.min(15,sig*3));
+ const col=risk>=60?"--q":risk>=35?"--p":"--v";
+ const word=!fact.length?"No factual claims found":risk>=60?"Likely misleading":risk>=35?"Mixed reliability":"Mostly reliable";
+ const cnt=k=>r.filter(x=>x.v===k).length;
+ const parts=[["q","questionable"],["p","partly true"],["u","unverifiable"],["v","verified"]].filter(([k])=>cnt(k)).map(([k,l])=>cnt(k)+" "+l);
+ let h=`<div class="rside"><div class="panel sum"><div><div class="sumtitle" style="color:var(${col})">${word}</div><div class="small"><div class="chips">${[["q","questionable"],["p","partly true"],["u","unverifiable"],["v","verified"],["o","opinion or forecast"]].filter(([k])=>cnt(k)).map(([k,l])=>`<span class="chip" style="--c:var(${LBL[k][1]})"><b>${cnt(k)}</b> ${l}</span>`).join("")||"No claims found."}</div>${sig?`<div class="warn">${sig} warning sign${sig===1?"":"s"} in the wording</div>`:""}</div></div><button class="ghost" id="copyrep">Copy report</button><button class="ghost" id="dlrep" hidden>Download report</button><div class="spec" role="img" aria-label="Risk score ${risk} out of 100"><i style="left:${risk}%"></i></div><div class="specl"><span>Reliable</span><span>Risk ${risk} / 100</span><span>Misleading</span></div></div>`;
+ h+=`<div class="panel passage"><h3>Your text, marked up</h3><p>${r.map(x=>x.kd==="fact"?`<a class="mk" href="#c${x.i}" style="--c:var(${LBL[x.v][1]});--i:${x.i}">${esc(x.s)}</a>`:`<span class="mk o">${esc(x.s)}</span>`).join(" ")}</p></div></div><div class="rmain">`;
+ fact.slice().sort((a,b)=>RANK[a.v]-RANK[b.v]).forEach(x=>{
+  const [n,cv]=LBL[x.v];
+  const lvl=x.c>=75?"High":x.c>=50?"Medium":"Low";
+  h+=`<article class="claim" id="c${x.i}" style="--c:var(${cv})"><div class="chead"><span class="dot" style="background:var(${cv})"></span><span class="vt">${n}</span><span class="conf" title="${x.c}%"><span class="mt"><i style="width:${x.c}%"></i></span>${lvl} confidence</span>${x.ai?'<span class="conf">AI-assessed</span>':""}</div><q>${esc(x.s)}</q><p class="why">${esc(x.ev)}</p>${x.recent?'<p class="why"><a href="#" data-gonews>Open live sources</a> to look for current reporting, or ask Claude in chat to search for this claim.</p>':""}<p class="links"><a href="https://toolbox.google.com/factcheck/explorer/search/${encodeURIComponent(x.s.slice(0,200))}" target="_blank" rel="noopener noreferrer">Search fact-checks</a><a href="https://news.google.com/search?q=${encodeURIComponent(x.s.slice(0,200))}" target="_blank" rel="noopener noreferrer">Search the news</a></p><details><summary>Warning signs and next steps</summary><dl>${x.fl.length?`<dt>Warning signs</dt><dd><ul class="flags">${x.fl.map(f=>`<li><b>${f.t}.</b> ${f.d}</li>`).join("")}</ul></dd>`:""}<dt>What would change this</dt><dd>${esc(x.cx)}</dd></dl></details></article>`;
+ });
+ if(other.length)h+=`<details class="other"><summary>${other.length} opinion or forecast sentence${other.length===1?"":"s"}, not fact-checked</summary><ul>${other.map(x=>`<li>${esc(x.s)}</li>`).join("")}</ul></details>`;
+ h+="</div>";
+ $("out").innerHTML=h;
+ $("out").querySelectorAll("[data-gonews]").forEach(a=>a.onclick=e=>{e.preventDefault();document.querySelector('[data-tab="news"]').click()});
+ const txt="Factline report, "+new Date().toLocaleDateString()+"\n"+word+" (risk "+risk+"/100)\n\n"+fact.map(x=>"- "+x.s+"\n  "+LBL[x.v][0]+" ("+x.c+"%): "+x.ev).join("\n\n")+"\n\nGenerated by a prototype. Not a substitute for fact-checking.\n";
+ $("copyrep").onclick=async()=>{
+  const b=$("copyrep");
+  try{await navigator.clipboard.writeText(txt);b.textContent="Copied"}catch(e){b.textContent="Copy blocked"}
+  setTimeout(()=>{b.textContent="Copy report"},1800);
+ };
+ const dlb=$("dlrep");
+ getDl().then(d=>{if(!d||!dlb)return;dlb.hidden=false;dlb.onclick=async()=>{try{await d.save({filename:"factline-report.txt",data:txt});dlb.textContent="Saved"}catch(e){dlb.textContent=e&&e.code==="cancelled"?"Download report":"Could not save"}setTimeout(()=>{dlb.textContent="Download report"},1800)}});
+ return{risk,n:r.length,cnt:{v:cnt("v"),p:cnt("p"),q:cnt("q"),u:cnt("u"),o:cnt("o")}};
+}
+let SAMP;
+let DL;async function getDl(){if(DL!==undefined)return DL;try{DL=(window.claude&&claude.use)?await claude.use("downloads"):null}catch(e){DL=null}return DL}
+async function getSample(){if(SAMP!==undefined)return SAMP;try{SAMP=(window.claude&&claude.use)?await claude.use("sample"):null}catch(e){SAMP=null}return SAMP}
+const VMAP={verified:"v",partly:"p",questionable:"q",unverifiable:"u"};
+async function aiCheck(sm,x){
+ const j=await sm.json('You are a careful fact-checker. Assess the claim using only well-established knowledge. If it concerns recent events, private events, or anonymous sources you cannot assess reliably, answer "unverifiable". Do not guess. Reply with JSON only, no markdown: {"verdict":"verified|partly|questionable|unverifiable","confidence":0-100,"evidence":"two sentences in your own words","sources":"the kinds of reliable sources to check, e.g. who.int","change":"what evidence would change this verdict"}\nClaim: '+x.s);
+ const v=VMAP[String(j.verdict).toLowerCase()];if(!v)throw{code:"bad_output"};
+ const cap=v==="u"?30:70;
+ x.v=v;x.c=Math.max(15,Math.min(cap,Math.round(+j.confidence||40)-x.fl.length*3));
+ x.ev="AI assessment from model knowledge, not a live search. "+String(j.evidence||"").slice(0,500)+(j.sources?" Sources to check: "+String(j.sources).slice(0,120)+".":"");
+ x.cx=String(j.change||x.cx).slice(0,300);x.ai=true;
+}
+$("inp").addEventListener("input",()=>$("cc").textContent=$("inp").value.length+" / 6000");
+$("inp").addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter")$("go").click()});
+$("go").onclick=async()=>{
+ const t=$("inp").value.trim();
+ if(!t){$("out").innerHTML='<div class="empty">Paste some text first.</div>';return}
+ const skip=noSave;noSave=false;const t0=performance.now();
+ const r=analyze(t);MS=performance.now()-t0;let res=render(r);
+ if(matchMedia("(max-width:919px)").matches)$("out").scrollIntoView({behavior:"smooth",block:"start"});
+ const un=r.filter(x=>x.kd==="fact"&&!x.kb&&!x.recent);
+ const st=$("aistat");st.textContent="";
+ if(un.length){
+  const sm=await getSample();
+  if(!sm){st.textContent=un.length+" claim"+(un.length>1?"s":"")+" not in the reference set and AI checking is unavailable in this view."}
+  else{
+   $("go").disabled=true;st.textContent="Checking "+un.length+" claim"+(un.length>1?"s":"")+" outside the reference set with AI...";
+   let fail=0,denied=false;
+   await Promise.all(un.map(x=>aiCheck(sm,x).catch(e=>{fail++;if(e&&e.code==="not_granted")denied=true})));
+   $("go").disabled=false;MS=performance.now()-t0;
+   res=render(r);
+   st.textContent=denied?"AI checking was declined, so those claims keep the rule-based result.":fail?fail+" claim"+(fail>1?"s":"")+" could not be AI-checked and keep the rule-based result.":"";
+  }
+ }
+ if(res&&!skip)saveHist(t,res);
+};
+$("clr").onclick=()=>{$("inp").value="";$("cc").textContent="0 / 6000";$("out").innerHTML='<div class="empty">Results appear here. Paste text, or try an example.</div>'};
+document.querySelectorAll("[data-ex]").forEach(b=>b.onclick=()=>{$("inp").value=EX[b.dataset.ex];$("cc").textContent=$("inp").value.length+" / 6000";$("go").click()});
+const TABS=["analyze","news","history","refs","design"];
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll("[data-tab]").forEach(x=>x.setAttribute("aria-selected",x===b));
+ TABS.forEach(t=>$(t).hidden=b.dataset.tab!==t);
+});
+
+/* ---- images and files ---- */
+const TXT=/\.(txt|md|csv|json|html?)$/i;
+function setText(t){const i=$("inp");i.value=t.slice(0,6000);$("cc").textContent=i.value.length+" / 6000"}
+async function readFile(f){
+ const st=$("aistat");
+ if(f.type.startsWith("image/")){
+  const sm=await getSample();const lim=sm?await sm.limits().catch(()=>null):null;
+  if(!lim||!lim.images){st.textContent="Reading images is unavailable in this view. Paste the text instead.";return}
+  if(!lim.images.mediaTypes.includes(f.type)||f.size>lim.images.maxInputBytes){st.textContent="That image type or size is not accepted. Try a PNG or JPEG under "+Math.round(lim.images.maxInputBytes/1048576)+" MB.";return}
+  $("go").disabled=true;st.textContent="Reading the text in the image...";
+  try{
+   const r=await sm("Transcribe all readable text in this image exactly as written, in reading order. If it is a chart or has no text, state in one or two plain sentences what claim it makes. Output only the text, with no commentary or markdown.",{images:[f],modelTier:"quick"});
+   const t=String(r.text||"").trim();
+   if(!t)st.textContent="No readable text was found in that image.";
+   else{setText(t);st.textContent="Text read from the image. Review it, then press Check claims. This reads the words only; it cannot tell whether the picture is edited."}
+  }catch(e){st.textContent=e&&e.code==="not_granted"?"Image reading was declined.":"Could not read that image. Try a clearer one or paste the text."}
+  $("go").disabled=false;return;
+ }
+ if(TXT.test(f.name)||f.type.startsWith("text/")){
+  let t=await f.text();
+  if(/\.html?$/i.test(f.name))t=t.replace(/<(script|style)[\s\S]*?<\/\1>/gi," ").replace(/<[^>]+>/g," ");
+  t=t.replace(/\s+/g," ").trim();setText(t);
+  st.textContent=(t.length>6000?"The file is longer than 6000 characters, so only the start was loaded. ":"File loaded. ")+"Press Check claims.";return;
+ }
+ st.textContent="That file type is not supported yet. Use an image, a .txt, .md, .csv, .json or .html file, or paste the text.";
+}
+$("up").onclick=()=>$("fi").click();
+$("fi").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f)readFile(f)};
+$("inp").addEventListener("dragover",e=>e.preventDefault());
+$("inp").addEventListener("drop",e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(f){e.preventDefault();readFile(f)}});
+$("inp").addEventListener("paste",e=>{const f=e.clipboardData&&e.clipboardData.files[0];if(f&&f.type.startsWith("image/")){e.preventDefault();readFile(f)}});
+
+/* ---- theme switcher ---- */
+function setSkin(k){
+ document.documentElement.dataset.skin=k;
+ document.querySelectorAll("[data-skin-btn]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.skinBtn===k));
+ try{localStorage.setItem("skin",k)}catch(e){}
+}
+document.querySelectorAll("[data-skin-btn]").forEach(b=>b.onclick=()=>setSkin(b.dataset.skinBtn));
+try{const k=localStorage.getItem("skin");if(["hud","cyber","day"].includes(k))setSkin(k)}catch(e){}
+
+/* ---- storage ---- */
+let EXTRA=[],noSave=false,db=null,uid=null,canWrite=false;
+const stat=m=>$("dbstat").textContent=m;
+const rcol=r=>r>=60?"--q":r>=35?"--p":"--v";
+function renderHist(rows){
+ if(!rows.length){$("hist").innerHTML='<div class="empty">No saved checks yet. Run one on the Check tab.</div>';return}
+ $("hist").innerHTML=rows.map(r=>`<div class="item"><div><span class="badge" style="--c:var(${rcol(r.risk)})">Risk ${r.risk}</span><span class="small">${new Date(r.ts).toLocaleString()} · ${r.n} sentences</span><div>${esc(String(r.text).slice(0,140))}${String(r.text).length>140?"...":""}</div></div><div class="row" style="margin:0;flex:none"><button class="ghost" data-rerun="${r.id}">Re-run</button><button class="ghost" data-del="${r.id}">Delete</button></div></div>`).join("");
+ $("hist").querySelectorAll("[data-rerun]").forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.rerun);$("inp").value=r.text;noSave=true;document.querySelector('[data-tab="analyze"]').click();$("go").click()});
+ $("hist").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>db.doc("data/users/"+uid+"/"+b.dataset.del).delete().catch(()=>stat("Could not delete that entry. Try again.")));
+}
+function saveHist(text,res){
+ if(!db||!uid||!canWrite)return;
+ db.collection("data/users/"+uid).add({text:text.slice(0,2000),risk:res.risk,n:res.n,cnt:res.cnt,ts:Date.now()}).catch(e=>stat("Could not save this check ("+(e.code||"error")+")."));
+}
+function renderKb(rows){
+ EXTRA=rows.filter(r=>Array.isArray(r.groups)).map(r=>({k:r.groups,v:r.v,c:r.c,ev:r.ev,src:r.src||"user-added"}));
+ if(!rows.length){$("kblist").innerHTML='<div class="empty">No shared entries yet. The built-in entries are always active.</div>';return}
+ $("kblist").innerHTML=rows.map(r=>`<div class="item"><div><span class="badge" style="--c:var(${LBL[r.v]?LBL[r.v][1]:"--u"})">${LBL[r.v]?LBL[r.v][0]:"Unknown"}</span><span class="small">${r.c}% · ${esc(r.src||"")}</span><div class="small">Keywords: ${esc((r.groups||[]).map(g=>g.join("/")).join(", "))}</div><div>${esc(r.ev||"")}</div></div>${canWrite?`<button class="ghost" data-kdel="${r.id}">Delete</button>`:""}</div>`).join("");
+ $("kblist").querySelectorAll("[data-kdel]").forEach(b=>b.onclick=()=>db.doc("kb/"+b.dataset.kdel).delete().catch(()=>{$("kmsg").textContent="Could not delete that entry."}));
+}
+$("kadd").onclick=async()=>{
+ const m=$("kmsg");
+ const groups=$("kk").value.toLowerCase().split(",").map(g=>g.split("/").map(w=>w.trim()).filter(Boolean)).filter(g=>g.length);
+ const ev=$("ke").value.trim(),c=Math.min(99,Math.max(20,+$("kc").value||80));
+ if(!db||!canWrite){m.textContent="You do not have permission to add shared entries here.";return}
+ if(!groups.length){m.textContent="Add at least one keyword.";return}
+ if(!ev){m.textContent="Add an evidence summary.";return}
+ try{await db.collection("kb").add({groups,v:$("kv").value,c,ev:ev.slice(0,500),src:$("ks").value.trim().slice(0,80),ts:Date.now()});
+  m.textContent="Entry added.";["kk","ke","ks"].forEach(i=>$(i).value="")}
+ catch(e){m.textContent="Could not add the entry ("+(e.code||"error")+")."}
+};
+async function initDb(){
+ try{
+  if(!(window.claude&&claude.use))throw 0;
+  db=await claude.use("db");const user=await claude.use("user");
+  if(!db||!user){stat("Storage is unavailable in this view, so history and shared entries are off. Analysis still works.");return}
+  uid=await user.id();canWrite=(await user.can("data.write"))!==false;
+  stat(canWrite?"Saved privately to your account.":"You have view-only access, so new checks are not saved.");
+  db.collection("data/users/"+uid).orderBy("ts","desc").limit(50).onSnapshot(sn=>renderHist(sn.docs.map(d=>({id:d.id,...d.data()}))),e=>stat("Could not load history ("+(e.code||"error")+")."));
+  db.collection("kb").orderBy("ts","desc").limit(200).onSnapshot(sn=>renderKb(sn.docs.map(d=>({id:d.id,...d.data()}))),()=>{});
+ }catch(e){stat("Storage is unavailable in this view, so history and shared entries are off. Analysis still works.")}
+}
+initDb();
+</script>
+</body>
+</html>
